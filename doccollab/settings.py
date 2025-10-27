@@ -2,6 +2,9 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+import pymysql
+pymysql.install_as_MySQLdb()
+
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -77,29 +80,19 @@ ASGI_APPLICATION = 'doccollab.asgi.application'
 import dj_database_url
 
 DATABASES = {
-    'default': dj_database_url.config(
-        default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-}
-
-# Alternative explicit MySQL detection for Railway
-if os.environ.get('MYSQLHOST'):  # Railway sets this for MySQL
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.environ.get('MYSQLDATABASE', 'railway'),
-            'USER': os.environ.get('MYSQLUSER', 'root'),
-            'PASSWORD': os.environ.get('MYSQLPASSWORD', ''),
-            'HOST': os.environ.get('MYSQLHOST', 'localhost'),
-            'PORT': os.environ.get('MYSQLPORT', '3306'),
-            'OPTIONS': {
-                'charset': 'utf8mb4',
-                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            }
-        }
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.environ.get('MYSQLDATABASE', 'doccollab_db'),
+        'USER': os.environ.get('MYSQLUSER', 'root'),
+        'PASSWORD': os.environ.get('MYSQLPASSWORD', ''),
+        'HOST': os.environ.get('MYSQLHOST', 'localhost'),
+        'PORT': os.environ.get('MYSQLPORT', '3306'),
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
     }
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
