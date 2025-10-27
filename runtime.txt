@@ -1,0 +1,2 @@
+# Create runtime.txt file with your Python version
+echo "python-3.12.5" > runtime.txt
