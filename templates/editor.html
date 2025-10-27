@@ -1,0 +1,1231 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div class="flex h-screen bg-gray-100">
+    <!-- Main Editor Area -->
+    <div class="flex-1 flex flex-col">
+        <!-- Header -->
+        <div class="bg-white border-b border-gray-200 p-4 flex justify-between items-center shadow-sm">
+            <div class="flex-1">
+                <input type="text" id="documentTitle" value="{{ document.title }}" class="text-2xl font-bold bg-transparent focus:outline-none w-full text-gray-900" {% if not can_edit %}readonly{% endif %}>
+            </div>
+            <div class="flex gap-2">
+                {% if can_edit %}
+                    <button onclick="saveVersion()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition flex items-center gap-2">
+                        <i class="fas fa-save"></i> Save
+                    </button>
+                {% endif %}
+                <button onclick="toggleShare()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition flex items-center gap-2">
+                    <i class="fas fa-share"></i> Share
+                </button>
+                <!--
+                <div class="relative">
+                    <button onclick="toggleDownload()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition flex items-center gap-2">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                    <div id="downloadMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-10">
+                        <a href="?format=txt" class="block px-4 py-2 hover:bg-gray-100">Download as TXT</a>
+                        <a href="?format=docx" class="block px-4 py-2 hover:bg-gray-100">Download as DOCX</a>
+                        <a href="?format=pdf" class="block px-4 py-2 hover:bg-gray-100">Download as PDF</a>
+                    </div>
+                </div>-->
+
+<div class="relative">
+    <button onclick="toggleDownload()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition flex items-center gap-2">
+        <i class="fas fa-download"></i> Download
+    </button>
+    <div id="downloadMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-10 border border-gray-200">
+        <button onclick="downloadDocument('txt')" class="block w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-700">
+            📝 Download as TXT
+        </button>
+        <button onclick="downloadDocument('docx')" class="block w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-700">
+            📘 Download as DOCX
+        </button>
+        <button onclick="downloadDocument('pdf')" class="block w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-700">
+            📊 Download as PDF
+        </button>
+    </div>
+</div>
+
+
+
+
+                <a href="{% url 'dashboard' %}" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition flex items-center gap-2">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="bg-white border-b border-gray-200 p-3 flex gap-2 flex-wrap shadow-sm">
+            <button onclick="formatText('bold')" class="p-2 hover:bg-gray-200 rounded transition" title="Bold (Ctrl+B)">
+                <i class="fas fa-bold"></i>
+            </button>
+            <button onclick="formatText('italic')" class="p-2 hover:bg-gray-200 rounded transition" title="Italic (Ctrl+I)">
+                <i class="fas fa-italic"></i>
+            </button>
+            <button onclick="formatText('underline')" class="p-2 hover:bg-gray-200 rounded transition" title="Underline (Ctrl+U)">
+                <i class="fas fa-underline"></i>
+            </button>
+            <div class="border-l border-gray-300"></div>
+            <button onclick="formatText('insertUnorderedList')" class="p-2 hover:bg-gray-200 rounded transition" title="Bullet List">
+                <i class="fas fa-list-ul"></i>
+            </button>
+            <button onclick="formatText('insertOrderedList')" class="p-2 hover:bg-gray-200 rounded transition" title="Numbered List">
+                <i class="fas fa-list-ol"></i>
+            </button>
+            <div class="border-l border-gray-300"></div>
+            <button onclick="formatText('createLink')" class="p-2 hover:bg-gray-200 rounded transition" title="Link">
+                <i class="fas fa-link"></i>
+            </button>
+            <button onclick="formatText('removeFormat')" class="p-2 hover:bg-gray-200 rounded transition" title="Clear Formatting">
+                <i class="fas fa-eraser"></i>
+            </button>
+        </div>
+
+        <!-- Editor -->
+        <div class="flex-1 overflow-auto bg-white">
+            <div id="editor" class="w-full max-w-4xl mx-auto p-8 min-h-full prose prose-sm max-w-none" contenteditable="true" style="outline: none;">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="w-80 bg-white border-l border-gray-200 flex flex-col shadow-lg">
+        <!-- Active Users -->
+        <div class="border-b border-gray-200 p-4">
+            <h3 class="font-bold text-lg mb-3 text-gray-900">Active Users</h3>
+            <div id="activeUsers" class="space-y-2">
+                {% for user in active_users %}
+                    <div class="flex items-center gap-2 p-2 bg-blue-50 rounded">
+                        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span class="text-sm font-medium">{{ user.user.username }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="border-b border-gray-200 p-4 flex-1 overflow-y-auto">
+            <h3 class="font-bold text-lg mb-3 text-gray-900">Activity</h3>
+            <div id="activityLog" class="space-y-2 text-sm">
+                {% for activity in activities %}
+                    <div class="p-2 bg-gray-50 rounded">
+                        <p class="font-medium text-gray-900">{{ activity.user.username }}</p>
+                        <p class="text-gray-600">{{ activity.description }}</p>
+                        <p class="text-xs text-gray-500">{{ activity.created_at|date:"H:i" }}</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Comments -->
+        <div class="border-t border-gray-200 p-4">
+            <h3 class="font-bold text-lg mb-3 text-gray-900">Comments</h3>
+            <div id="comments" class="space-y-2 mb-3 max-h-40 overflow-y-auto">
+                {% for comment in comments %}
+                    <div class="p-2 bg-yellow-50 rounded text-sm">
+                        <p class="font-medium text-gray-900">{{ comment.user.username }}</p>
+                        <p class="text-gray-700">{{ comment.content }}</p>
+                    </div>
+                {% endfor %}
+            </div>
+            {% if can_edit %}
+                <button onclick="addComment()" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition text-sm font-medium">
+                    Add Comment
+                </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Share Modal -->
+<div id="shareModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h2 class="text-2xl font-bold mb-4 text-gray-900">Share Document</h2>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-gray-700 font-bold mb-2">Username</label>
+                <input type="text" id="shareUsername" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-bold mb-2">Permission</label>
+                <select id="sharePermission" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                    <option value="viewer">Viewer (Read Only)</option>
+                    <option value="editor" selected>Editor (Can Edit)</option>
+                </select>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="shareDocument()" class="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">
+                    Share
+                </button>
+                <button onclick="closeShareModal()" class="flex-1 bg-gray-600 text-white py-2 rounded hover:bg-gray-700 transition">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+
+
+<!--
+const documentId = {{ document.id }};
+const editor = document.getElementById('editor');
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsUrl = `${protocol}//${window.location.host}/ws/document/${documentId}/`;
+
+let ws = null;
+let lastContent = editor.innerHTML;
+let isRemoteChange = false;
+let autoSaveTimer = null;
+
+function connectWebSocket() {
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = function(e) {
+        console.log('[v0] WebSocket connection established');
+        showNotification('Connected to document', 'success');
+    };
+
+    ws.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        console.log('[v0] Received message:', data.type);
+
+        if (data.type === 'document_load') {
+            editor.innerHTML = JSON.stringify(data.content) !== '{}' ? renderContent(data.content) : '';
+            lastContent = editor.innerHTML;
+        } else if (data.type === 'edit') {
+            isRemoteChange = true;
+            editor.innerHTML = renderContent(data.content);
+            lastContent = editor.innerHTML;
+            isRemoteChange = false;
+            showNotification(`${data.username} made changes`, 'info');
+        } else if (data.type === 'user_joined') {
+            showNotification(`${data.username} joined`, 'info');
+            updateActiveUsers();
+        } else if (data.type === 'user_left') {
+            showNotification(`${data.username} left`, 'info');
+            updateActiveUsers();
+        } else if (data.type === 'cursor') {
+            showCursor(data.username, data.position);
+        } else if (data.type === 'comment') {
+            addCommentToSidebar(data.username, data.content, data.position);
+        }
+    };
+
+    ws.onerror = function(error) {
+        console.error('[v0] WebSocket error:', error);
+        showNotification('Connection error', 'error');
+    };
+
+    ws.onclose = function(e) {
+        console.log('[v0] WebSocket connection closed');
+        showNotification('Disconnected. Reconnecting...', 'warning');
+        setTimeout(connectWebSocket, 3000);
+    };
+}
+
+editor.addEventListener('input', function() {
+    if (!isRemoteChange) {
+        const content = editor.innerHTML;
+        if (content !== lastContent) {
+            lastContent = content;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'edit',
+                    content: content,
+                }));
+            }
+            
+            // Auto-save every 30 seconds
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(() => {
+                saveVersion();
+            }, 30000);
+        }
+    }
+});
+
+editor.addEventListener('click', function() {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const preCaretRange = range.cloneRange();
+        preCaretRange.selectNodeContents(editor);
+        preCaretRange.setEnd(range.endContainer, range.endOffset);
+        const position = preCaretRange.toString().length;
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'cursor',
+                position: position,
+                selection_start: selection.anchorOffset,
+                selection_end: selection.focusOffset,
+            }));
+        }
+    }
+});
+
+function formatText(command) {
+    document.execCommand(command, false, null);
+    editor.focus();
+}
+
+function saveVersion() {
+    fetch(`/documents/api/save-version/{{ document.id }}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            summary: 'Auto-saved'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`Saved (v${data.version})`, 'success');
+        }
+    });
+}
+
+function addComment() {
+    const comment = prompt('Enter your comment:');
+    if (comment) {
+        const selection = window.getSelection();
+        let position = 0;
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const preCaretRange = range.cloneRange();
+            preCaretRange.selectNodeContents(editor);
+            preCaretRange.setEnd(range.endContainer, range.endOffset);
+            position = preCaretRange.toString().length;
+        }
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'comment',
+                content: comment,
+                position: position,
+            }));
+        }
+    }
+}
+
+function addCommentToSidebar(username, content, position) {
+    const commentsDiv = document.getElementById('comments');
+    const commentEl = document.createElement('div');
+    commentEl.className = 'p-2 bg-yellow-50 rounded text-sm';
+    commentEl.innerHTML = `<p class="font-medium text-gray-900">${username}</p><p class="text-gray-700">${content}</p>`;
+    commentsDiv.insertBefore(commentEl, commentsDiv.firstChild);
+}
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    const bgColor = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : type === 'warning' ? 'bg-yellow-600' : 'bg-blue-600';
+    notification.className = `fixed top-4 right-4 ${bgColor} text-white px-4 py-2 rounded shadow-lg`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 3000);
+}
+
+function showCursor(username, position) {
+    console.log(`[v0] ${username} cursor at ${position}`);
+}
+
+function updateActiveUsers() {
+    location.reload();
+}
+
+function toggleShare() {
+    document.getElementById('shareModal').classList.toggle('hidden');
+}
+
+function closeShareModal() {
+    document.getElementById('shareModal').classList.add('hidden');
+}
+
+function shareDocument() {
+    const username = document.getElementById('shareUsername').value;
+    const permission = document.getElementById('sharePermission').value;
+
+    if (!username) {
+        showNotification('Please enter a username', 'warning');
+        return;
+    }
+
+    fetch(`/documents/api/share/{{ document.id }}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            username: username,
+            permission: permission
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`Shared with ${username}`, 'success');
+            closeShareModal();
+            document.getElementById('shareUsername').value = '';
+        } else {
+            showNotification(data.error || 'Error sharing document', 'error');
+        }
+    });
+}
+
+function toggleDownload() {
+    document.getElementById('downloadMenu').classList.toggle('hidden');
+}
+
+function renderContent(content) {
+    if (typeof content === 'string') {
+        return content;
+    }
+    return JSON.stringify(content);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+connectWebSocket();
+
+
+-->
+
+<script>
+const documentId = {{ document.id }};
+const editor = document.getElementById('editor');
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsUrl = `${protocol}//${window.location.host}/ws/document/${documentId}/`;
+
+
+let ws = null;
+let lastContent = editor.innerHTML;
+let isRemoteChange = false;
+let autoSaveTimer = null;
+let activeUsers = new Set();
+let lastSelection = null;
+
+function connectWebSocket() {
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = function(e) {
+        console.log('[v2] WebSocket connection established');
+        showNotification('Connected to document', 'success');
+    };
+
+    ws.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        console.log('[v2] Received message:', data.type);
+
+        switch(data.type) {
+            case 'document_load':
+                handleDocumentLoad(data);
+                break;
+            case 'edit':
+                handleEdit(data);
+                break;
+            case 'user_joined':
+                handleUserJoined(data);
+                break;
+            case 'user_left':
+                handleUserLeft(data);
+                break;
+            case 'cursor':
+                handleCursor(data);
+                break;
+            case 'comment':
+                handleComment(data);
+                break;
+            default:
+                console.log('[v2] Unknown message type:', data.type);
+        }
+    };
+
+    ws.onerror = function(error) {
+        console.error('[v2] WebSocket error:', error);
+        showNotification('Connection error', 'error');
+    };
+
+    ws.onclose = function(e) {
+        console.log('[v2] WebSocket connection closed');
+        showNotification('Disconnected. Reconnecting...', 'warning');
+        setTimeout(connectWebSocket, 3000);
+    };
+}
+
+function saveSelection() {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+        lastSelection = {
+            range: selection.getRangeAt(0).cloneRange(),
+            offset: getCaretOffset(editor)
+        };
+    }
+}
+
+function restoreSelection() {
+    if (!lastSelection) return;
+    
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    
+    try {
+        // Try to restore the exact range first
+        if (lastSelection.range) {
+            selection.addRange(lastSelection.range);
+        } 
+        // Fallback to offset-based restoration
+        else if (lastSelection.offset !== undefined) {
+            setCaretOffset(editor, lastSelection.offset);
+        }
+    } catch (e) {
+        console.log('[v2] Could not restore selection, using fallback');
+        // If restoration fails, put cursor at end
+        setCaretToEnd(editor);
+    }
+}
+
+function getCaretOffset(element) {
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0) return 0;
+    
+    const range = selection.getRangeAt(0);
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(element);
+    preCaretRange.setEnd(range.endContainer, range.endOffset);
+    return preCaretRange.toString().length;
+}
+
+function setCaretOffset(element, offset) {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    
+    let currentOffset = 0;
+    let foundNode = null;
+    let foundOffset = 0;
+
+    function findNode(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const nodeLength = node.textContent.length;
+            if (currentOffset + nodeLength >= offset) {
+                foundNode = node;
+                foundOffset = offset - currentOffset;
+                return true;
+            }
+            currentOffset += nodeLength;
+        } else {
+            for (let i = 0; i < node.childNodes.length; i++) {
+                if (findNode(node.childNodes[i])) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    if (findNode(element)) {
+        range.setStart(foundNode, foundOffset);
+        range.setEnd(foundNode, foundOffset);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    } else {
+        // Fallback: set to end
+        setCaretToEnd(element);
+    }
+}
+
+function setCaretToEnd(element) {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
+function handleDocumentLoad(data) {
+    if (data.content && JSON.stringify(data.content) !== '{}') {
+        // Save selection before updating content
+        saveSelection();
+        
+        editor.innerHTML = renderContent(data.content);
+        lastContent = editor.innerHTML;
+        
+        // Restore selection after content update
+        restoreSelection();
+    } else {
+        editor.innerHTML = '';
+        lastContent = '';
+    }
+    
+    // Update active users from initial load
+    if (data.active_users) {
+        activeUsers.clear();
+        data.active_users.forEach(user => {
+            activeUsers.add(user.id);
+        });
+        updateActiveUsersDisplay();
+    }
+}
+
+function handleEdit(data) {
+    // Don't apply our own edits
+    if (isRemoteChange) return;
+    
+    const newContent = renderContent(data.content);
+    
+    // Only update if content actually changed
+    if (editor.innerHTML !== newContent) {
+        // Save current cursor position
+        saveSelection();
+        
+        isRemoteChange = true;
+        editor.innerHTML = newContent;
+        lastContent = editor.innerHTML;
+        
+        // Restore cursor position
+        restoreSelection();
+        isRemoteChange = false;
+        
+        if (data.username) {
+            showNotification(`${data.username} made changes`, 'info');
+        }
+    }
+}
+
+function handleUserJoined(data) {
+    if (data.user_id) {
+        activeUsers.add(data.user_id);
+        updateActiveUsersDisplay();
+    }
+    if (data.username) {
+        showNotification(`${data.username} joined the document`, 'info');
+    }
+}
+
+function handleUserLeft(data) {
+    if (data.user_id) {
+        activeUsers.delete(data.user_id);
+        updateActiveUsersDisplay();
+    }
+    if (data.username) {
+        showNotification(`${data.username} left the document`, 'info');
+    }
+}
+
+function handleCursor(data) {
+    // Show cursor position for other users
+    showCursor(data.username, data.position);
+}
+
+function handleComment(data) {
+    addCommentToSidebar(data.username, data.content, data.position);
+}
+
+function updateActiveUsersDisplay() {
+    const activeUsersDiv = document.getElementById('active-users');
+    if (!activeUsersDiv) return;
+    
+    activeUsersDiv.innerHTML = `
+        <div class="text-sm font-medium text-gray-700">
+            Online Users: ${activeUsers.size}
+        </div>
+    `;
+    
+    console.log('[v2] Active users updated:', activeUsers.size);
+}
+
+// Track selection changes
+editor.addEventListener('click', function() {
+    saveSelection();
+    sendCursorPosition();
+});
+
+editor.addEventListener('keyup', function() {
+    saveSelection();
+    sendCursorPosition();
+});
+
+editor.addEventListener('keydown', function() {
+    saveSelection();
+});
+
+editor.addEventListener('input', function() {
+    if (!isRemoteChange && ws && ws.readyState === WebSocket.OPEN) {
+        const content = editor.innerHTML;
+        if (content !== lastContent) {
+            lastContent = content;
+            
+            // Save selection before sending
+            saveSelection();
+            
+            ws.send(JSON.stringify({
+                type: 'edit',
+                content: content,
+            }));
+            
+            // Auto-save every 30 seconds
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(() => {
+                saveVersion();
+            }, 30000);
+        }
+    }
+});
+
+function sendCursorPosition() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const preCaretRange = range.cloneRange();
+            preCaretRange.selectNodeContents(editor);
+            preCaretRange.setEnd(range.endContainer, range.endOffset);
+            const position = preCaretRange.toString().length;
+
+            ws.send(JSON.stringify({
+                type: 'cursor',
+                position: position,
+                selection_start: selection.anchorOffset,
+                selection_end: selection.focusOffset,
+            }));
+        }
+    }
+}
+
+function formatText(command) {
+    // Save selection before formatting
+    saveSelection();
+    
+    document.execCommand(command, false, null);
+    editor.focus();
+    
+    // Restore selection after formatting
+    restoreSelection();
+    
+    // Trigger input event to sync changes
+    const event = new Event('input', { bubbles: true });
+    editor.dispatchEvent(event);
+}
+
+function saveVersion() {
+    fetch(`/documents/api/save-version/${documentId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            summary: 'Auto-saved'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log(`[v2] Saved version ${data.version}`);
+        }
+    })
+    .catch(error => {
+        console.error('[v2] Error saving version:', error);
+    });
+}
+
+function addComment() {
+    const comment = prompt('Enter your comment:');
+    if (comment && ws && ws.readyState === WebSocket.OPEN) {
+        const selection = window.getSelection();
+        let position = 0;
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const preCaretRange = range.cloneRange();
+            preCaretRange.selectNodeContents(editor);
+            preCaretRange.setEnd(range.endContainer, range.endOffset);
+            position = preCaretRange.toString().length;
+        }
+
+        ws.send(JSON.stringify({
+            type: 'comment',
+            content: comment,
+            position: position,
+        }));
+    }
+}
+
+function addCommentToSidebar(username, content, position) {
+    const commentsDiv = document.getElementById('comments');
+    if (!commentsDiv) return;
+    
+    const commentEl = document.createElement('div');
+    commentEl.className = 'p-2 bg-yellow-50 rounded text-sm mb-2';
+    commentEl.innerHTML = `
+        <p class="font-medium text-gray-900">${username || 'Unknown'}</p>
+        <p class="text-gray-700">${content || ''}</p>
+        <p class="text-xs text-gray-500">Position: ${position}</p>
+    `;
+    commentsDiv.insertBefore(commentEl, commentsDiv.firstChild);
+}
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    const bgColor = type === 'success' ? 'bg-green-600' : 
+                   type === 'error' ? 'bg-red-600' : 
+                   type === 'warning' ? 'bg-yellow-600' : 'bg-blue-600';
+    
+    notification.className = `fixed top-4 right-4 ${bgColor} text-white px-4 py-2 rounded shadow-lg z-50`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 3000);
+}
+
+function showCursor(username, position) {
+    console.log(`[v2] ${username} cursor at ${position}`);
+    // Implement visual cursor display here if needed
+}
+
+function toggleShare() {
+    const modal = document.getElementById('shareModal');
+    if (modal) {
+        modal.classList.toggle('hidden');
+    }
+}
+
+function closeShareModal() {
+    const modal = document.getElementById('shareModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+function shareDocument() {
+    const usernameInput = document.getElementById('shareUsername');
+    const permissionSelect = document.getElementById('sharePermission');
+    
+    if (!usernameInput || !permissionSelect) return;
+    
+    const username = usernameInput.value.trim();
+    const permission = permissionSelect.value;
+
+    if (!username) {
+        showNotification('Please enter a username', 'warning');
+        return;
+    }
+
+    fetch(`/documents/api/share/${documentId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            username: username,
+            permission: permission
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`Document shared with ${username}`, 'success');
+            closeShareModal();
+            usernameInput.value = '';
+        } else {
+            showNotification(data.error || 'Error sharing document', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('[v2] Error sharing document:', error);
+        showNotification('Error sharing document', 'error');
+    });
+}
+
+function toggleDownload() {
+    const menu = document.getElementById('downloadMenu');
+    if (menu) {
+        menu.classList.toggle('hidden');
+    }
+}
+
+function renderContent(content) {
+    if (typeof content === 'string') {
+        return content;
+    }
+    if (content && typeof content === 'object') {
+        return JSON.stringify(content);
+    }
+    return '';
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    connectWebSocket();
+    updateActiveUsersDisplay();
+    
+    // Focus the editor
+    editor.focus();
+});
+
+// Save selection when leaving the editor
+editor.addEventListener('blur', function() {
+    saveSelection();
+});
+
+//download logic
+
+// ===== DOWNLOAD FUNCTIONS =====
+function downloadDocument(format) {
+    const content = editor.innerHTML;
+    const title = '{{ document.title|default:"document"|escapejs }}';
+    
+    switch(format) {
+        case 'txt':
+            downloadTXT(content, title);
+            break;
+        case 'docx':
+            downloadServerFormat('docx', title, content);
+            break;
+        case 'pdf':
+            downloadServerFormat('pdf', title, content);
+            break;
+        default:
+            showNotification('Unsupported format', 'error');
+    }
+    
+    // Hide download menu after selection
+    toggleDownload();
+}
+
+function downloadTXT(content, title) {
+    try {
+        // Convert HTML to plain text
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+        const plainText = tempDiv.textContent || tempDiv.innerText || '';
+        
+        // Create and download file
+        const blob = new Blob([`${title}\n\n${plainText}`], { type: 'text/plain; charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showNotification('Downloaded as Text', 'success');
+    } catch (error) {
+        console.error('TXT download error:', error);
+        showNotification('Error downloading as Text', 'error');
+    }
+}
+
+function downloadDocument(format) {
+    const content = editor.innerHTML;
+    const title = '{{ document.title|default:"document"|escapejs }}';
+    
+    switch(format) {
+        case 'txt':
+            downloadTXT(content, title);
+            break;
+        case 'docx':
+            downloadServerFormat('docx', title, content);
+            break;
+        case 'pdf':
+            downloadServerFormat('pdf', title, content);
+            break;
+        default:
+            showNotification('Unsupported format', 'error');
+    }
+    
+    // Hide download menu after selection
+    toggleDownload();
+}
+
+function downloadTXT(content, title) {
+    try {
+        // Convert HTML to plain text
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+        const plainText = tempDiv.textContent || tempDiv.innerText || '';
+        
+        // Create and download file
+        const blob = new Blob([`${title}\n\n${plainText}`], { type: 'text/plain; charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showNotification('Downloaded as Text', 'success');
+    } catch (error) {
+        console.error('TXT download error:', error);
+        showNotification('Error downloading as Text', 'error');
+    }
+}
+
+function downloadServerFormat(format, title, content) {
+    showNotification(`Generating ${format.toUpperCase()}...`, 'info');
+    
+    // CORRECTED URL - matches your urls.py pattern
+    const downloadUrl = `/api/download/${documentId}/?format=${format}`;
+    
+    console.log(`Downloading from: ${downloadUrl}`);
+    console.log('documentId:', documentId);
+
+    
+    fetch(downloadUrl, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            content: content,
+            title: title
+        })
+    })
+    .then(response => {
+        console.log(`Response status: ${response.status}`);
+        
+        if (!response.ok) {
+            return response.text().then(text => {
+                console.error('Server response:', text);
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            });
+        }
+        
+        const contentType = response.headers.get('content-type');
+        console.log(`Content-Type: ${contentType}`);
+        
+        if (contentType && contentType.includes('application/json')) {
+            return response.json().then(data => {
+                throw new Error(data.error || `Failed to generate ${format}`);
+            });
+        }
+        
+        return response.blob();
+    })
+    .then(blob => {
+        if (blob && blob.size > 0) {
+            console.log(`Blob received, size: ${blob.size} bytes`);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showNotification(`Downloaded as ${format.toUpperCase()}`, 'success');
+        } else {
+            throw new Error('Empty file received from server');
+        }
+    })
+    .catch(error => {
+        console.error(`${format} download error:`, error);
+        showNotification(`Error: ${error.message}`, 'error');
+    });
+}
+
+function toggleDownload() {
+    const menu = document.getElementById('downloadMenu');
+    if (menu) {
+        menu.classList.toggle('hidden');
+    }
+}
+
+// Close download menu when clicking outside
+document.addEventListener('click', function(event) {
+    const downloadMenu = document.getElementById('downloadMenu');
+    const downloadButton = document.querySelector('[onclick="toggleDownload()"]');
+    
+    if (downloadMenu && !downloadMenu.contains(event.target) && 
+        downloadButton && !downloadButton.contains(event.target)) {
+        downloadMenu.classList.add('hidden');
+    }
+});
+
+</script>
+
+
+
+<script type="module">
+/*
+  Minimal Quill + Yjs binding, using a Django Channels relay consumer (YjsRelayConsumer).
+  This uses:
+    - yjs (CRDT)
+    - y-websocket WebsocketProvider (but pointed at our relay route)
+    - y-quill QuillBinding
+  Loaded as ES modules from jsDelivr CDN — no npm required.
+*/
+/*
+import * as Y from "https://cdn.jsdelivr.net/npm/yjs@13.6.15/dist/yjs.mjs";
+import { WebsocketProvider } from "https://cdn.jsdelivr.net/npm/y-websocket@1.5.11/dist/y-websocket.mjs";
+import { QuillBinding } from "https://cdn.jsdelivr.net/npm/y-quill@1.0.3/dist/y-quill.mjs";
+
+// Django template vars (already present in your template)
+const documentId = {{ document.id }};
+const canEdit = {{ can_edit|yesno:"true,false" }};
+const currentUsername = "{{ request.user.username|escapejs }}";
+
+// Initialize Quill on the same div (#editor)
+const quill = new Quill('#editor', {
+  theme: 'snow',
+  readOnly: !canEdit,
+  modules: {
+    toolbar: [
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+      ['link', 'clean']
+    ]
+  }
+});
+
+// Yjs document
+const ydoc = new Y.Doc();
+
+// Connect provider to the new relay path: /ws/yjs/<documentId>/
+const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+const host = window.location.host; // includes port
+const yjsPath = `${protocol}//${host}/ws/yjs/${documentId}/`;
+
+// IMPORTANT: pass room name same as documentId to provider
+const provider = new WebsocketProvider(yjsPath, String(documentId), ydoc);
+
+// Shared text for Quill
+const ytext = ydoc.getText("quill");
+
+// Bind Quill <-> Y.Text with awareness (cursors)
+const binding = new QuillBinding(ytext, quill, provider.awareness);
+
+// Setup local awareness user info (shows presence to others)
+provider.awareness.setLocalStateField('user', {
+  name: currentUsername || 'Anonymous',
+  color: '#' + Math.floor(Math.random()*16777215).toString(16)
+});
+
+// Optional: update your Active Users sidebar when awareness changes
+function updateActiveUsersDisplay() {
+  const states = Array.from(provider.awareness.getStates().values());
+  const activeDiv = document.getElementById('activeUsers') || document.getElementById('active-users') || document.getElementById('active-users-div');
+  if (!activeDiv) return;
+
+  activeDiv.innerHTML = states.map(s => {
+    const u = s.user || {};
+    const name = u.name || 'Anonymous';
+    const color = u.color || '#888';
+    return `<div class="flex items-center gap-2 p-2 bg-blue-50 rounded"><div style="width:10px;height:10px;background:${color};border-radius:50%"></div><span class="text-sm font-medium">${name}</span></div>`;
+  }).join('');
+}
+
+provider.awareness.on('change', updateActiveUsersDisplay);
+updateActiveUsersDisplay();
+
+// Optional: auto-save Quill content to your existing save endpoint
+let autosaveTimer = null;
+function autoSave() {
+  if (!{{ can_edit|yesno:"true,false" }}) return;
+  const content = quill.root.innerHTML;
+  fetch(`/documents/api/save-version/${documentId}/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': (function(){ const m=document.cookie.match(/csrftoken=([^;]+)/); return m ? m[1] : ''; })()
+    },
+    body: JSON.stringify({ summary: 'Auto-save (Yjs)', content })
+  }).catch(console.error);
+}
+setInterval(autoSave, 30000);
+*/
+// Log provider connection status (debug)
+provider.on('status', evt => console.log('Yjs provider status:', evt.status));
+</script>
+
+<style>
+/* ensure editor uses your existing layout */
+#editor .ql-editor {
+  min-height: calc(100vh - 250px);
+}
+#editor {
+  margin: 0 auto;
+}
+</style>
+
+
+
+
+
+<style>
+#editor:focus {
+    outline: none;
+}
+
+/* Smooth transitions for better UX */
+#editor {
+    transition: border-color 0.2s ease;
+}
+
+.collab-notification {
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+</style>
+
+
+{% endblock %}
