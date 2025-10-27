@@ -79,6 +79,13 @@ ASGI_APPLICATION = 'doccollab.asgi.application'
 # Database Configuration - Auto-switches between SQLite (local) and MySQL (Railway)
 import dj_database_url
 
+# Temporary debug - add this to your settings.py
+
+print("Available environment variables:")
+for key, value in os.environ.items():
+    if 'MYSQL' in key or 'DATABASE' in key:
+        print(f"{key}: {value}")
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
@@ -93,6 +100,10 @@ DATABASES = {
         },
     }
 }
+
+# Also check if DATABASE_URL is available
+if 'DATABASE_URL' in os.environ:
+    print(f"DATABASE_URL: {os.environ['DATABASE_URL']}")
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
