@@ -1,14 +1,3 @@
-const documentId = {{ document.id }};
-const editor = document.getElementById('editor');
-const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const wsUrl = `${protocol}//${window.location.host}/ws/document/${documentId}/`;
-
-let ws = null;
-let lastContent = '';
-let isRemoteChange = false;
-let autoSaveTimer = null;
-let activeUsers = new Set();
-let isComposing = false;
 
 // Critical: Track if user is actively typing
 let isTyping = false;
