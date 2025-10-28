@@ -80,14 +80,15 @@ ASGI_APPLICATION = 'doccollab.asgi.application'
 import dj_database_url
 
 # Temporary debug - add this to your settings.py
-
-print("Available environment variables:")
-for key, value in os.environ.items():
-    if 'MYSQL' in key or 'DATABASE' in key:
-        print(f"{key}: {value}")
-
-DATABASES = {
-    'default': {
+# Try multiple connection methods
+def get_database_config():
+    # Method 1: DATABASE_URL
+    if 'DATABASE_URL' in os.environ:
+        import dj_database_url
+        return dj_database_url.config(conn_max_age=600)
+    
+    # Method 2: Individual MySQL variables
+    mysql_config = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': os.environ.get('MYSQLDATABASE', 'doccollab_db'),
         'USER': os.environ.get('MYSQLUSER', 'root'),
@@ -99,12 +100,20 @@ DATABASES = {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
         },
     }
+    
+    # Check if we have at least the host (indicating Railway MySQL is available)
+    if os.environ.get('MYSQLHOST') and os.environ.get('MYSQLHOST') != 'localhost':
+        return mysql_config
+    
+    # Fallback to SQLite for local development
+    return {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+
+DATABASES = {
+    'default': get_database_config()
 }
-
-# Also check if DATABASE_URL is available
-if 'DATABASE_URL' in os.environ:
-    print(f"DATABASE_URL: {os.environ['DATABASE_URL']}")
-
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
